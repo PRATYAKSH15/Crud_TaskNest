@@ -4,7 +4,7 @@ import React, { useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { CheckCircle2, Lock, Mail, ArrowRight, Loader2, AlertCircle } from 'lucide-react'
+import { CheckCircle2, Lock, Mail, ArrowRight, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,11 +17,14 @@ function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(initialError || null)
+  const [resendNotice, setResendNotice] = useState<string | null>(null)
+  const [resending, setResending] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+    setResendNotice(null)
 
     if (!email.trim() || !password) {
       setError('Please enter both your email and password.')
@@ -52,6 +55,38 @@ function LoginForm() {
       setLoading(false)
     }
   }
+
+  const handleResendConfirmation = async () => {
+    if (!email.trim()) {
+      setError('Please enter your email address to resend confirmation.')
+      return
+    }
+
+    try {
+      setResending(true)
+      const supabase = createClient()
+      const { error: resendErr } = await supabase.auth.resend({
+        type: 'signup',
+        email: email.trim(),
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+
+      if (resendErr) {
+        setError(resendErr.message)
+      } else {
+        setResendNotice('Confirmation link resent! Check your inbox or spam folder.')
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to resend confirmation email.'
+      setError(message)
+    } finally {
+      setResending(false)
+    }
+  }
+
+  const isEmailNotConfirmed = error?.toLowerCase().includes('email not confirmed')
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -90,9 +125,39 @@ function LoginForm() {
           )}
 
           {error && (
-            <div className="mb-5 rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-700 flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-500 mt-0.5" />
-              <div className="flex-1 font-medium">{error}</div>
+            <div className="mb-5 rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-700">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-500 mt-0.5" />
+                <div className="flex-1 font-medium">{error}</div>
+              </div>
+
+              {isEmailNotConfirmed && (
+                <div className="mt-3 pt-2.5 border-t border-red-200/60 flex flex-col gap-2">
+                  <p className="text-[11px] text-red-600 leading-relaxed">
+                    Your Supabase project has email verification enabled. Check your inbox for the confirmation email, or disable email confirmations in Supabase Dashboard (Authentication &gt; Providers &gt; Email).
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleResendConfirmation}
+                    disabled={resending}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-indigo-900 underline cursor-pointer"
+                  >
+                    {resending ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-3 h-3" />
+                    )}
+                    <span>Resend verification email</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {resendNotice && (
+            <div className="mb-5 rounded-lg bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-600" />
+              <span>{resendNotice}</span>
             </div>
           )}
 
