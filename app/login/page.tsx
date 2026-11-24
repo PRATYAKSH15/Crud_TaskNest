@@ -1,0 +1,188 @@
+'use client'
+
+import React, { useState, Suspense } from 'react'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { CheckCircle2, Lock, Mail, ArrowRight, Loader2, AlertCircle } from 'lucide-react'
+
+export const dynamic = 'force-dynamic'
+
+function LoginForm() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectedFrom = searchParams.get('redirectedFrom')
+  const initialError = searchParams.get('error')
+
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(initialError || null)
+  const [loading, setLoading] = useState(false)
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+
+    if (!email.trim() || !password) {
+      setError('Please enter both your email and password.')
+      return
+    }
+
+    try {
+      setLoading(true)
+      const supabase = createClient()
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      })
+
+      if (signInError) {
+        setError(signInError.message || 'Invalid email or password.')
+        setLoading(false)
+        return
+      }
+
+      if (data?.user) {
+        router.push(redirectedFrom || '/dashboard')
+        router.refresh()
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred.'
+      setError(message)
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        {/* Brand Logo & Header */}
+        <div className="flex justify-center items-center gap-2 mb-3">
+          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-200">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <span className="text-2xl font-bold tracking-tight text-slate-900">TaskNest</span>
+        </div>
+        <p className="text-center text-xs uppercase tracking-wider font-semibold text-indigo-600 mb-2">
+          Organize your work. Simplify your day.
+        </p>
+        <h2 className="text-center text-2xl font-bold tracking-tight text-slate-900">
+          Sign in to your account
+        </h2>
+        <p className="mt-2 text-center text-sm text-slate-600">
+          Or{' '}
+          <Link
+            href="/signup"
+            className="font-medium text-indigo-600 hover:text-indigo-500 transition-colors"
+          >
+            create a new account for free
+          </Link>
+        </p>
+      </div>
+
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
+        <div className="bg-white py-8 px-6 shadow-sm border border-slate-200 rounded-2xl sm:px-10">
+          {redirectedFrom && (
+            <div className="mb-5 rounded-lg bg-indigo-50 border border-indigo-100 p-3 text-xs text-indigo-800 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 text-indigo-600" />
+              <span>Please sign in to access your dashboard.</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="mb-5 rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-700 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 text-red-500 mt-0.5" />
+              <div className="flex-1 font-medium">{error}</div>
+            </div>
+          )}
+
+          <form className="space-y-5" onSubmit={handleLogin}>
+            <div>
+              <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 mb-1">
+                Email address
+              </label>
+              <div className="relative rounded-lg shadow-xs">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                  <Mail className="h-4 w-4" />
+                </div>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="alex@example.com"
+                  className="block w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-3 text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 text-sm transition-all"
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-700">
+                  Password
+                </label>
+              </div>
+              <div className="relative rounded-lg shadow-xs">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+                  <Lock className="h-4 w-4" />
+                </div>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="block w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-3 text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 text-sm transition-all"
+                />
+              </div>
+            </div>
+
+            <div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex justify-center items-center gap-2 py-2.5 px-4 rounded-lg text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed shadow-xs transition-colors"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Signing in...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Sign In</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+
+          <div className="mt-6 pt-6 border-t border-slate-100 text-center text-xs text-slate-500">
+            Protected by Supabase Row Level Security
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
+  )
+}
